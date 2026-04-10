@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Bayes Machine PRO FINAL</title>
+
+<style>
+body{
+  margin:0;
+  font-family:Segoe UI;
+  background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+  color:white;
+  text-align:center;
+}
+
+h1{margin:15px}
+
+.container{
+  display:flex;
+  justify-content:center;
+  gap:40px;
+}
+
+.box{
+  width:300px;
+  padding:10px;
+  border-radius:15px;
+  background:rgba(255,255,255,0.1);
+}
+
+.dice{font-size:80px;margin:10px;}
+
+.card{
+  display:inline-block;
+  width:32px;height:32px;
+  line-height:32px;
+  margin:2px;
+  border-radius:6px;
+  background:white;color:black;
+  font-weight:bold;
+}
+
+svg{
+  background:rgba(0,0,0,0.4);
+  border-radius:10px;
+}
+
+.node{
+  fill:white;
+  stroke:black;
+  stroke-width:2;
+}
+
+.active{
+  fill:#00ffcc !important;
+}
+
+.path{
+  stroke:yellow;
+  stroke-width:4;
+  fill:none;
+  stroke-dasharray:300;
+  stroke-dashoffset:300;
+  animation:draw 0.6s forwards;
+}
+
+@keyframes draw{
+  to{stroke-dashoffset:0;}
+}
+
+table{
+  width:90%;
+  margin:auto;
+  border-collapse:collapse;
+  background:white;
+  color:black;
+}
+
+th,td{
+  border:1px solid #ccc;
+  padding:5px;
+  font-size:12px;
+}
+
+button{
+  padding:6px 12px;
+  margin:5px;
+  border:none;
+  border-radius:8px;
+  cursor:pointer;
+}
+</style>
+</head>
+
+<body>
+
+<h1>TRƯỜNG THPT NAM ĐÔNG</h1>
+<h1>🎯TỔ TOÁN</h1>
+<h1>🎯 Mô phỏng tung xúc xắc và rút thẻ_tạo sơ đồ cây</h1>
+
+<div class="container">
+
+<div class="box">
+<h3>🎲 Xúc xắc</h3>
+<div id="dice" class="dice">⚀</div>
+<button onclick="rollDice()">Gieo</button>
+</div>
+
+<div class="box">
+<h3>🔤 Chữ</h3>
+<div id="letters"></div>
+<button onclick="createLetters()">Tạo chữ</button>
+<button onclick="drawOnce()">Rút 1 chữ</button>
+</div>
+
+</div>
+
+<div>
+<button onclick="autoRun()">🚀 Auto 100 lần</button>
+<button onclick="resetAll()">🔄 Reset</button>
+</div>
+
+<br>
+
+<svg id="tree" width="720" height="420"></svg>
+
+<h2 id="formula"></h2>
+
+<h3>📊 Nhật ký dữ liệu</h3>
+<table id="table">
+<tr>
+<th>Lần</th><th>Xúc xắc</th><th>Chữ</th>
+</tr>
+</table>
+
+<script>
+
+const faces=["⚀","⚁","⚂","⚃","⚄","⚅"];
+
+let diceValue=null;
+let letters=[];
+let count=0;
+
+// thống kê
+let diceCount=[0,0,0,0,0,0];
+let condCount={};
+let condTotal={};
+
+// ===== TẠO CHỮ =====
+function createLetters(){
+  letters=[];
+  for(let i=65;i<=90;i++){
+    letters.push(String.fromCharCode(i));
+  }
+  renderLetters();
+}
+
+function renderLetters(){
+  let html="";
+  letters.forEach(l=>{
+    html+=`<div class="card">${l}</div>`;
+  });
+  document.getElementById("letters").innerHTML=html;
+}
+
+// ===== XÚC XẮC =====
+function rollDice(){
+  diceValue=Math.floor(Math.random()*6);
+  document.getElementById("dice").innerText=faces[diceValue];
+  diceCount[diceValue]++;
+}
+
+// ===== RÚT =====
+function drawOnce(){
+
+  if(diceValue===null){
+    alert("Gieo xúc xắc trước!");
+    return;
+  }
+
+  if(letters.length===0){
+    alert("Chưa tạo chữ!");
+    return;
+  }
+
+  let l = letters[Math.floor(Math.random()*letters.length)];
+
+  let key=(diceValue+1)+"_"+l;
+
+  condCount[key]=(condCount[key]||0)+1;
+  condTotal[diceValue]=(condTotal[diceValue]||0)+1;
+
+  count++;
+
+  addRow(count,diceValue+1,l);
+
+  drawTree(l);
+}
+
+// ===== TABLE =====
+function addRow(i,d,l){
+  document.getElementById("table").innerHTML += `
+  <tr>
+    <td>${i}</td>
+    <td>${d}</td>
+    <td>${l}</td>
+  </tr>`;
+}
+
+// ===== CÂY BAYES =====
+function drawTree(letter){
+
+  let svg=document.getElementById("tree");
+  svg.innerHTML="";
+
+  let sx=360, sy=40;
+
+  drawNode(svg,sx,sy,"Start");
+
+  let pos=[];
+
+  for(let i=0;i<6;i++){
+
+    let x=100+i*100;
+    let y=150;
+    pos.push({x,y});
+
+    let exp = (diceCount[i]/(count||1)).toFixed(2);
+    let theo = (1/6).toFixed(2);
+
+    let label = `P=${exp} | LT=${theo}`;
+
+    drawLine(svg,sx,sy,x,y,i===diceValue,label);
+    drawNode(svg,x,y,i+1,i===diceValue);
+  }
+
+  let d=pos[diceValue];
+
+  setTimeout(()=>{
+    drawLine(svg,sx,sy,d.x,d.y,true);
+  },200);
+
+  setTimeout(()=>{
+
+    let k=diceValue+1;
+    let key=k+"_"+letter;
+
+    let exp = (condCount[key]/(condTotal[diceValue]||1)).toFixed(2);
+    let theo = (1/26).toFixed(2);
+
+    let label = `P=${exp} | LT=${theo}`;
+
+    drawLine(svg,d.x,d.y,360,310,true,label);
+    drawNode(svg,360,310,letter,true);
+
+    showFormula(letter);
+
+  },500);
+}
+
+// ===== NODE =====
+function drawNode(svg,x,y,t,active=false){
+
+  let c=document.createElementNS("http://www.w3.org/2000/svg","circle");
+  c.setAttribute("cx",x);
+  c.setAttribute("cy",y);
+  c.setAttribute("r",25);
+  c.setAttribute("class","node");
+  if(active) c.classList.add("active");
+
+  svg.appendChild(c);
+
+  let tx=document.createElementNS("http://www.w3.org/2000/svg","text");
+  tx.setAttribute("x",x);
+  tx.setAttribute("y",y+5);
+  tx.setAttribute("text-anchor","middle");
+  tx.textContent=t;
+
+  svg.appendChild(tx);
+}
+
+// ===== LINE =====
+function drawLine(svg,x1,y1,x2,y2,active,label=""){
+
+  let l=document.createElementNS("http://www.w3.org/2000/svg","line");
+
+  l.setAttribute("x1",x1);
+  l.setAttribute("y1",y1);
+  l.setAttribute("x2",x2);
+  l.setAttribute("y2",y2);
+
+  if(active){
+    l.setAttribute("class","path");
+  }else{
+    l.setAttribute("stroke","white");
+    l.setAttribute("stroke-width","1");
+  }
+
+  svg.appendChild(l);
+
+  if(label){
+    let tx=(x1+x2)/2;
+    let ty=(y1+y2)/2;
+
+    let t=document.createElementNS("http://www.w3.org/2000/svg","text");
+    t.setAttribute("x",tx);
+    t.setAttribute("y",ty);
+    t.setAttribute("fill","yellow");
+    t.setAttribute("font-size","12");
+    t.setAttribute("text-anchor","middle");
+    t.textContent=label;
+
+    svg.appendChild(t);
+  }
+}
+
+// ===== FORMULA =====
+function showFormula(letter){
+
+  let k=diceValue+1;
+  let key=k+"_"+letter;
+
+  let p = (condCount[key]/condTotal[diceValue]).toFixed(2);
+
+  document.getElementById("formula").innerHTML =
+    `P(${letter} | ${k}) = ${p}`;
+}
+
+// ===== AUTO =====
+function autoRun(){
+
+  createLetters();
+
+  let i=0;
+
+  let interval=setInterval(()=>{
+    rollDice();
+    drawOnce();
+    i++;
+    if(i>=100) clearInterval(interval);
+  },120);
+}
+
+// ===== RESET =====
+function resetAll(){
+
+  diceValue=null;
+  count=0;
+
+  document.getElementById("dice").innerText="⚀";
+  document.getElementById("letters").innerHTML="";
+
+  document.getElementById("table").innerHTML=`
+  <tr>
+  <th>Lần</th><th>Xúc xắc</th><th>Chữ</th>
+  </tr>`;
+
+  condCount={};
+  condTotal={};
+  diceCount=[0,0,0,0,0,0];
+
+  document.getElementById("tree").innerHTML="";
+  document.getElementById("formula").innerHTML="";
+}
+
+</script>
+
+</body>
+</html>
